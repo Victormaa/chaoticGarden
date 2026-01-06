@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2186fc026c4f6e4468fe779af8c0a440, type: 3}
+  m_Name: BeetSeed
+  m_EditorClassIdentifier: 
+  itemName: Beet Seets
+  itemID: seed_beet
+  itemType: 0
+  description: After planting and collection,The sugar beet will experience explosive
+    growth.
+  icon: {fileID: 0}
+  worldPrefab: {fileID: 0}
+  maxStackSize: 99
+  sellPrice: 10
+  canBeDropped: 1
+  cropToGrow: {fileID: 11400000, guid: 1b2e0553891ffa04cbb693ac4c9d291e, type: 2}
+  growthTime: 10
+  requiredLevel: 1
+  harvestYield: 3
+  seedsOnHarvest: 1
