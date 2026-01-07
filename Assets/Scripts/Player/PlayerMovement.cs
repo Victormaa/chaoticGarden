@@ -56,6 +56,8 @@ public class PlayerMovement : MonoBehaviour
     private bool isCrouching;
     private bool isSprinting;
 
+    public Animator animator;
+
     void Awake()
     {
         // 获取或添加 CharacterController
@@ -148,9 +150,19 @@ public class PlayerMovement : MonoBehaviour
             currentSpeed = walkSpeed;
             isSprinting = false;
         }
+        //控制Animatior
+        if(moveDirection.magnitude > 0)
+        {
+            animator.Play("Move");
+        }
+        else
+        {
+            animator.Play("IdleA");
 
-        // 移动
-        Vector3 move = moveDirection * currentSpeed;
+        }
+
+            // 移动
+            Vector3 move = moveDirection * currentSpeed;
         controller.Move(move * Time.deltaTime);
     }
 
