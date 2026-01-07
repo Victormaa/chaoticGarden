@@ -162,7 +162,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
             // ÒÆ¶¯
-            Vector3 move = moveDirection * currentSpeed;
+        Vector3 move = moveDirection * currentSpeed;
         controller.Move(move * Time.deltaTime);
     }
 
