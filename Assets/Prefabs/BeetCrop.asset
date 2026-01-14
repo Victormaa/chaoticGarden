@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f81df63bd089184da051ff5af9a93ff, type: 3}
+  m_Name: BeetCrop
+  m_EditorClassIdentifier: 
+  cropName: Beet
+  itemID: Beet_1
+  icon: {fileID: 0}
+  seedModel: {fileID: 6572622862124758179, guid: b5e6eb86823e75c4ca008b3246fad0f5, type: 3}
+  growingModel: {fileID: 7833415671905014683, guid: cb32060324bcfe342b2f9067848e6aa0, type: 3}
+  matureModel: {fileID: 5562203359543324816, guid: 83d8005d26e1cec46a3c4aad32184fcc, type: 3}
+  seedPositionOffset: {x: 0, y: 0.4, z: 0}
+  growingPositionOffset: {x: 0, y: 0.2, z: 0}
+  maturePositionOffset: {x: 0, y: 0.2, z: 0}
+  seedRotation: {x: 0, y: 0, z: 0}
+  growingRotation: {x: 0, y: 0, z: 0}
+  matureRotation: {x: 0, y: 0, z: 0}
+  seedScale: {x: 1, y: 1, z: 1}
+  growingScale: {x: 0.03146347, y: 0.03146347, z: 0.03146347}
+  matureScale: {x: 1, y: 1, z: 1}
+  seedGrowthTime: 3
+  seedlingGrowthTime: 10
+  harvestItemID: crop_001
+  harvestAmount: 5
