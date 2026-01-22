@@ -1,182 +1,183 @@
-using UnityEngine;
+﻿using UnityEngine;
+using System.Collections;
 
 public class Crop : MonoBehaviour
 {
-    private CropData cropData;
-    private GameObject commonSeedPrefab;
+    [Header("作物数据")]
+    public CropData cropData;
+
+    [Header("生长状态")]
+    public int currentStage = 0;
+    public float growthTimer = 0f;
+    public bool isFullyGrown = false;
+
+    [Header("收割设置")]
+    public KeyCode harvestKey = KeyCode.C;
+    public float harvestDistance = 3f;
+
+    [Header("掉落物设置")]
+    public GameObject collectiblePrefab;
+    public int dropCount = 3;
+    public float minForce = 5f;
+    public float maxForce = 10f;
+
+    private Transform player;
     private FarmLand farmLand;
-    private GameObject currentModel;
-    private CropStage currentStage = CropStage.Seed;
-    private float stageTimer = 0f;
+    private bool playerInRange = false;
 
-    public void Initialize(CropData data, GameObject seedPrefab, FarmLand land)
+    void Start()
     {
-        cropData = data;
-        commonSeedPrefab = seedPrefab;
-        farmLand = land;
+        player = GameObject.FindGameObjectWithTag("Player")?.transform;
+        farmLand = GetComponentInParent<FarmLand>();
 
-        currentStage = CropStage.Seed;
-        stageTimer = 0f;
+        if (cropData == null)
+        {
+            Debug.LogError("CropData 未分配！");
+            enabled = false;
+            return;
+        }
 
-        SpawnModel(CropStage.Seed);
-
-        Debug.Log("Crop initialized: " + cropData.cropName);
+        UpdateAppearance();
+        Debug.Log($"种植了 {cropData.cropName}，需要 {cropData.totalGrowthTime} 秒成熟");
     }
 
     void Update()
     {
-        if (cropData == null) return;
-
-        stageTimer += Time.deltaTime;
-
-        switch (currentStage)
+        // 生长逻辑
+        if (!isFullyGrown)
         {
-            case CropStage.Seed:
-                if (stageTimer >= cropData.seedGrowthTime)
+            growthTimer += Time.deltaTime;
+            float progress = growthTimer / cropData.totalGrowthTime;
+            int newStage = Mathf.FloorToInt(progress * cropData.growthStages.Length);
+            newStage = Mathf.Min(newStage, cropData.growthStages.Length - 1);
+
+            if (newStage != currentStage)
+            {
+                currentStage = newStage;
+                UpdateAppearance();
+            }
+
+            if (progress >= 1f)
+            {
+                isFullyGrown = true;
+                Debug.Log($"{cropData.cropName} 已成熟，可以收割");
+            }
+        }
+
+        // 收割检测
+        if (isFullyGrown && player != null)
+        {
+            float distance = Vector3.Distance(player.position, transform.position);
+            if (distance <= harvestDistance)
+            {
+                if (!playerInRange)
                 {
-                    GrowToNextStage(CropStage.Seedling);
+                    playerInRange = true;
+                    Debug.Log($"按 {harvestKey} 键收割 {cropData.cropName}");
                 }
-                break;
 
-            case CropStage.Seedling:
-                if (stageTimer >= cropData.seedlingGrowthTime)
+                if (Input.GetKeyDown(harvestKey))
                 {
-                    GrowToNextStage(CropStage.Mature);
+                    Harvest();
                 }
-                break;
+            }
+            else
+            {
+                playerInRange = false;
+            }
         }
     }
 
-    void GrowToNextStage(CropStage nextStage)
+    protected virtual void Harvest()
     {
-        currentStage = nextStage;
-        stageTimer = 0f;
+        Debug.Log($"收割 {cropData.cropName}");
 
-        if (currentModel != null)
+        // 添加到背包
+        if (InventoryManager.Instance != null)
         {
-            Destroy(currentModel);
+            InventoryManager.Instance.AddItem(cropData.cropID, cropData.harvestAmount);
+            Debug.Log($"获得 {cropData.cropName} x{cropData.harvestAmount}");
         }
 
-        SpawnModel(nextStage);
-
-        Debug.Log("Crop entered " + nextStage + " stage");
+        // 生成掉落物
+        if (collectiblePrefab != null)
+        {
+            StartCoroutine(SpawnCollectibles());
+        }
+        else
+        {
+            CompletHarvest();
+        }
     }
 
-    void SpawnModel(CropStage stage)
+    IEnumerator SpawnCollectibles()
     {
-        GameObject modelPrefab = null;
-        Vector3 positionOffset = Vector3.zero;
-        Vector3 rotation = Vector3.zero;
-        Vector3 scale = Vector3.one;
-
-        switch (stage)
+        for (int i = 0; i < dropCount; i++)
         {
-            case CropStage.Seed:
-                modelPrefab = cropData.seedModel != null ? cropData.seedModel : commonSeedPrefab;
-                positionOffset = cropData.seedPositionOffset;
-                rotation = cropData.seedRotation;
-                scale = cropData.seedScale;
-                break;
+            Vector3 spawnPos = transform.position + Vector3.up * 0.5f;
+            GameObject collectible = Instantiate(collectiblePrefab, spawnPos, Quaternion.identity);
 
-            case CropStage.Seedling:
-                modelPrefab = cropData.growingModel;
-                positionOffset = cropData.growingPositionOffset;
-                rotation = cropData.growingRotation;
-                scale = cropData.growingScale;
-                break;
+            Collectible comp = collectible.GetComponent<Collectible>();
+            if (comp != null)
+            {
+                comp.itemID = cropData.cropID;
+                comp.amount = 1;
+            }
 
-            case CropStage.Mature:
-                modelPrefab = cropData.matureModel;
-                positionOffset = cropData.maturePositionOffset;
-                rotation = cropData.matureRotation;
-                scale = cropData.matureScale;
-                break;
+            Rigidbody rb = collectible.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                Vector3 randomDir = new Vector3(
+                    Random.Range(-0.05f, 0.05f),
+                    Random.Range(0.8f, 1.2f),
+                    Random.Range(-0.05f, 0.05f)
+                ).normalized;
+
+                float force = Random.Range(minForce, maxForce);
+                rb.AddForce(randomDir * force, ForceMode.Impulse);
+                rb.AddTorque(Random.insideUnitSphere * 10f, ForceMode.Impulse);
+            }
+
+            yield return new WaitForSeconds(0.05f);
         }
 
-        if (modelPrefab == null)
-        {
-            CreateDefaultModel(stage, positionOffset, rotation, scale);
-            return;
-        }
-
-        currentModel = Instantiate(modelPrefab, transform);
-
-        currentModel.transform.localPosition = positionOffset;
-        currentModel.transform.localRotation = Quaternion.Euler(rotation);
-        currentModel.transform.localScale = scale;
-
-        Debug.Log("Spawned " + stage + " model - Position: " + positionOffset + ", Rotation: " + rotation + ", Scale: " + scale);
+        yield return new WaitForSeconds(0.3f);
+        CompletHarvest();
     }
 
-    void CreateDefaultModel(CropStage stage, Vector3 position, Vector3 rotation, Vector3 scale)
+    void CompletHarvest()
     {
-        PrimitiveType primitiveType = PrimitiveType.Cube;
-        Color color = Color.white;
-        Vector3 defaultScale = Vector3.one * 0.1f;
-
-        switch (stage)
+        if (farmLand != null)
         {
-            case CropStage.Seed:
-                primitiveType = PrimitiveType.Sphere;
-                color = new Color(0.55f, 0.35f, 0.17f);
-                defaultScale = new Vector3(0.1f, 0.1f, 0.1f);
-                break;
-
-            case CropStage.Seedling:
-                primitiveType = PrimitiveType.Cube;
-                color = new Color(0.2f, 0.8f, 0.2f);
-                defaultScale = new Vector3(0.15f, 0.25f, 0.15f);
-                break;
-
-            case CropStage.Mature:
-                primitiveType = PrimitiveType.Sphere;
-                color = new Color(0.8f, 0.2f, 0.2f);
-                defaultScale = new Vector3(0.25f, 0.25f, 0.25f);
-                break;
-        }
-
-        currentModel = GameObject.CreatePrimitive(primitiveType);
-        currentModel.transform.SetParent(transform);
-        currentModel.transform.localPosition = position;
-        currentModel.transform.localRotation = Quaternion.Euler(rotation);
-        currentModel.transform.localScale = Vector3.Scale(defaultScale, scale);
-
-        Renderer renderer = currentModel.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material.color = color;
-        }
-
-        Debug.LogWarning("Using default " + stage + " model");
-    }
-
-    public bool CanHarvest()
-    {
-        return currentStage == CropStage.Mature;
-    }
-
-    public void Harvest()
-    {
-        if (!CanHarvest())
-        {
-            Debug.LogWarning("Crop is not yet mature");
-            return;
-        }
-
-        InventoryManager inventory = FindObjectOfType<InventoryManager>();
-        if (inventory != null)
-        {
-            inventory.AddItem(cropData.harvestItemID, cropData.harvestAmount);
-            Debug.Log("Harvested " + cropData.harvestAmount + " " + cropData.cropName);
+            farmLand.OnCropHarvested();
         }
 
         Destroy(gameObject);
     }
-}
 
-public enum CropStage
-{
-    Seed,      // Seed
-    Seedling,  // Seedling
-    Mature     // Mature
+    void UpdateAppearance()
+    {
+        if (cropData.growthStages == null || cropData.growthStages.Length == 0)
+        {
+            return;
+        }
+
+        if (currentStage >= cropData.growthStages.Length)
+        {
+            currentStage = cropData.growthStages.Length - 1;
+        }
+
+        CropGrowthStage stage = cropData.growthStages[currentStage];
+
+        if (stage.model != null)
+        {
+            foreach (Transform child in transform)
+            {
+                Destroy(child.gameObject);
+            }
+
+            GameObject model = Instantiate(stage.model, transform.position, Quaternion.identity, transform);
+            model.transform.localScale = stage.scale;
+        }
+    }
 }

@@ -2,34 +2,32 @@
 
 public class FarmLand : MonoBehaviour
 {
-    [Header("Land Status")]//farm状态
-    public bool isOccupied = false;
-
     [Header("References")]
-    public InventoryManager inventory;
+    public GameObject currentCrop;
     public PlantingUI plantingUI;
-    public Transform plantPosition;
-    public GameObject commonSeedPrefab;
+    public Transform player;
 
-    [Header("Interaction Settings")]
+    [Header("Settings")]
+    public bool isPlowed = true;
+    public bool hasCrop = false;
     public float interactionDistance = 3f;
-    public KeyCode interactKey = KeyCode.F;
+    public KeyCode interactKey = KeyCode.E;
 
-    private Transform player;
-    private Crop currentCrop;
     private bool playerInRange = false;
 
     void Start()
     {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null)
-        {
-            player = playerObj.transform;
-        }
+        //  强制重置农田状态（确保初始为空）
+        hasCrop = false;
+        currentCrop = null;
 
-        if (inventory == null)
+        if (player == null)
         {
-            inventory = FindObjectOfType<InventoryManager>();
+            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+            if (playerObj != null)
+            {
+                player = playerObj.transform;
+            }
         }
 
         if (plantingUI == null)
@@ -37,91 +35,81 @@ public class FarmLand : MonoBehaviour
             plantingUI = FindObjectOfType<PlantingUI>();
         }
 
-        if (plantPosition == null)
-        {
-            plantPosition = transform;
-        }
+        Debug.Log($" {gameObject.name} 初始化: hasCrop={hasCrop}, isPlowed={isPlowed}");
     }
 
     void Update()
     {
         if (player == null) return;
 
-        float distance = Vector3.Distance(transform.position, player.position);
-        playerInRange = distance <= interactionDistance;
+        float distance = Vector3.Distance(player.position, transform.position);
 
-        if (playerInRange && Input.GetKeyDown(interactKey))
+        if (distance <= interactionDistance)
         {
-            if (!isOccupied)
+            if (!playerInRange)
             {
-                OnPlayerEnter();
+                playerInRange = true;
+                Debug.Log($"进入 {gameObject.name} 范围 (hasCrop={hasCrop})");
             }
-            else if (currentCrop != null)
+
+            //  只有在没有作物时才能打开种植UI
+            if (isPlowed && !hasCrop && currentCrop == null && Input.GetKeyDown(interactKey))
             {
-                HarvestCrop();
+                Debug.Log($" 按下E键，打开种植UI");
+
+                if (plantingUI != null)
+                {
+                    plantingUI.ShowUI(this);
+                }
             }
-        }
-    }
-
-    public void OnPlayerEnter()
-    {
-        if (isOccupied)
-        {
-            Debug.Log("Land is already occupied");
-            return;
-        }
-
-        if (plantingUI != null)
-        {
-            plantingUI.ShowUI(this);
+            else if (Input.GetKeyDown(interactKey) && (hasCrop || currentCrop != null))
+            {
+                Debug.Log($" 农田已有作物，无法重复种植");
+            }
         }
         else
         {
-            Debug.LogError("PlantingUI not found!");
+            if (playerInRange)
+            {
+                playerInRange = false;
+                Debug.Log($" 离开 {gameObject.name} 范围");
+            }
         }
     }
 
-    public void PlantCrop(CropData cropData)
+    public void PlantCrop(GameObject cropPrefab)
     {
-        if (isOccupied)
+        if (cropPrefab == null)
         {
-            Debug.Log("Land is already occupied");
+            Debug.LogError(" 作物预制体为空！");
             return;
         }
 
-        if (cropData == null)
+        if (!isPlowed)
         {
-            Debug.LogError("CropData is null!");
+            Debug.LogWarning(" 土地未耕，无法种植");
             return;
         }
 
-        GameObject cropObj = new GameObject("Crop_" + cropData.cropName);
-        cropObj.transform.position = plantPosition.position;
-        cropObj.transform.rotation = plantPosition.rotation;
-        cropObj.transform.SetParent(transform);
-
-        currentCrop = cropObj.AddComponent<Crop>();
-        currentCrop.Initialize(cropData, commonSeedPrefab, this);
-
-        isOccupied = true;
-
-        if (plantingUI != null)
+        if (hasCrop || currentCrop != null)
         {
-            plantingUI.HideUI();
+            Debug.LogWarning(" 已有作物，无法重复种植");
+            return;
         }
 
-        Debug.Log("Successfully planted " + cropData.cropName);
+        //  生成作物
+        Vector3 cropPosition = transform.position + Vector3.up * 0.1f;
+        currentCrop = Instantiate(cropPrefab, cropPosition, Quaternion.identity, transform);
+        hasCrop = true;
+
+        Debug.Log($" 作物已种植在 {gameObject.name}");
     }
 
-    public void HarvestCrop()
+    public void OnCropHarvested()
     {
-        if (currentCrop != null)
-        {
-            currentCrop.Harvest();
-            currentCrop = null;
-            isOccupied = false;
-            Debug.Log("Harvest completed");//收获完成
-        }
+        hasCrop = false;
+        currentCrop = null;
+        Debug.Log($" {gameObject.name} 作物已收割，可重新种植");
     }
 
     void OnDrawGizmosSelected()

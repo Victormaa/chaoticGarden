@@ -1,26 +1,24 @@
 using UnityEngine;
-using System;
 using System.Collections.Generic;
-
-[System.Serializable]
-public class InventoryItem
-{
-    public string itemID;
-    public int quantity;
-}
 
 public class InventoryManager : MonoBehaviour
 {
     public static InventoryManager Instance { get; private set; }
 
-    public List<InventoryItem> items = new List<InventoryItem>();
+    [Header("背包设置")]
+    public int maxSlots = 20;
+    public int maxStackSize = 99;
 
-    // 背包变化事件，UI会监听这个事件
-    public event Action OnInventoryChanged;
+    [Header("UI引用")]
+    public InventoryUI inventoryUI;
+
+    // 事件
+    public System.Action OnInventoryChanged;
+
+    private List<InventoryItem> items = new List<InventoryItem>();
 
     void Awake()
     {
-        // 单例模式
         if (Instance == null)
         {
             Instance = this;
@@ -29,88 +27,109 @@ public class InventoryManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
         }
     }
 
-    public bool HasItem(string itemID, int amount = 1)
+    // 添加物品
+    public bool AddItem(string itemID, int amount)
     {
-        foreach (InventoryItem item in items)
+        if (string.IsNullOrEmpty(itemID) || amount <= 0) return false;
+
+        int remaining = amount;
+
+        // 优先堆叠到已有物品
+        foreach (var item in items)
         {
-            if (item.itemID == itemID && item.quantity >= amount)
+            if (item.itemID == itemID && item.quantity < maxStackSize)
             {
-                return true;
+                int canAdd = Mathf.Min(remaining, maxStackSize - item.quantity);
+                item.quantity += canAdd;
+                remaining -= canAdd;
+
+                if (remaining <= 0) break;
             }
         }
-        return false;
-    }
 
-    public int GetItemCount(string itemID)
-    {
-        foreach (InventoryItem item in items)
+        // 剩余的放到新槽位
+        while (remaining > 0)
         {
-            if (item.itemID == itemID)
+            if (items.Count >= maxSlots)
             {
-                return item.quantity;
-            }
-        }
-        return 0;
-    }
-
-    public void AddItem(string itemID, int amount = 1)
-    {
-        foreach (InventoryItem item in items)
-        {
-            if (item.itemID == itemID)
-            {
-                item.quantity += amount;
-                Debug.Log("添加物品：" + itemID + " x" + amount + "，当前数量：" + item.quantity);
-
-                // 通知UI更新
+                Debug.LogWarning("背包已满！");
                 OnInventoryChanged?.Invoke();
-                return;
+                return false;
             }
+
+            int canAdd = Mathf.Min(remaining, maxStackSize);
+            items.Add(new InventoryItem { itemID = itemID, quantity = canAdd });
+            remaining -= canAdd;
         }
 
-        items.Add(new InventoryItem { itemID = itemID, quantity = amount });
-        Debug.Log("添加新物品：" + itemID + " x" + amount);
-
-        // 通知UI更新
         OnInventoryChanged?.Invoke();
+        return true;
     }
 
-    public void RemoveItem(string itemID, int amount = 1)
+    // 移除物品
+    public bool RemoveItem(string itemID, int amount)
     {
-        for (int i = items.Count - 1; i >= 0; i--)
+        if (string.IsNullOrEmpty(itemID) || amount <= 0) return false;
+
+        int remaining = amount;
+
+        for (int i = items.Count - 1; i >= 0 && remaining > 0; i--)
         {
             if (items[i].itemID == itemID)
             {
-                items[i].quantity -= amount;
-
-                if (items[i].quantity <= 0)
+                if (items[i].quantity >= remaining)
                 {
-                    items.RemoveAt(i);
-                    Debug.Log("物品已用完：" + itemID);
+                    items[i].quantity -= remaining;
+                    remaining = 0;
+
+                    if (items[i].quantity <= 0)
+                    {
+                        items.RemoveAt(i);
+                    }
                 }
                 else
                 {
-                    Debug.Log("移除物品：" + itemID + " x" + amount + "，剩余数量：" + items[i].quantity);
+                    remaining -= items[i].quantity;
+                    items.RemoveAt(i);
                 }
-
-                // 通知UI更新
-                OnInventoryChanged?.Invoke();
-                return;
             }
         }
+
+        OnInventoryChanged?.Invoke();
+        return remaining <= 0;
     }
 
+    // 获取物品数量
+    public int GetItemCount(string itemID)
+    {
+        if (string.IsNullOrEmpty(itemID)) return 0;
+
+        int total = 0;
+        foreach (var item in items)
+        {
+            if (item.itemID == itemID)
+            {
+                total += item.quantity;
+            }
+        }
+        return total;
+    }
+
+    // 获取所有物品
     public List<InventoryItem> GetAllItems()
     {
         return items;
     }
+}
 
-    public void ClearInventory()
-    {
-        items.Clear();
-        OnInventoryChanged?.Invoke();
-    }
+// 物品数据类
+[System.Serializable]
+public class InventoryItem
+{
+    public string itemID;
+    public int quantity;
 }

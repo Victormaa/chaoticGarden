@@ -1,43 +1,42 @@
 ﻿using UnityEngine;
 
-[CreateAssetMenu(fileName = "NewCrop", menuName = "Farming/Crop Data")]
+[CreateAssetMenu(fileName = "NewCrop", menuName = "Farm/Crop Data")]
 public class CropData : ScriptableObject
 {
-    [Header("Basic Information")]//基本信息
-    public string cropName = "Crop";
-    public string itemID = "crop_item";
+    [Header("基本信息")]
+    public string cropID; // 唯一ID，既是作物ID也是种子ID
+    public string cropName;
     public Sprite icon;
+    public GameObject cropPrefab;
 
-    [Header("Growth Models")]
-    public GameObject seedModel;
-    public GameObject growingModel;
-    public GameObject matureModel;
+    [Header("生长配置")]
+    public float totalGrowthTime = 20f;  // 总生长时间
+    public CropGrowthStage[] growthStages;
 
-    [Header("Model Position Offset")]
-    [Tooltip("Position offset for seed stage")]
-    public Vector3 seedPositionOffset = new Vector3(0, 0.1f, 0);
+    [Header("收获配置")]
+    public int harvestAmount = 1; // 直接收获作物本身，无需单独收获ID
 
-    [Tooltip("Position offset for growing stage")]
-    public Vector3 growingPositionOffset = new Vector3(0, 0.2f, 0);
+    // 验证方法
+    void OnValidate()
+    {
+        if (string.IsNullOrEmpty(cropID))
+            Debug.LogWarning($"CropData '{name}' 缺少 cropID");
 
-    [Tooltip("Position offset for mature stage")]
-    public Vector3 maturePositionOffset = new Vector3(0, 0.3f, 0);
+        if (cropPrefab == null)
+            Debug.LogWarning($"CropData '{name}' 缺少 cropPrefab");
 
-    [Header("Model Rotation")]
-    public Vector3 seedRotation = Vector3.zero;
-    public Vector3 growingRotation = Vector3.zero;
-    public Vector3 matureRotation = Vector3.zero;
+        if (growthStages == null || growthStages.Length == 0)
+            Debug.LogWarning($"CropData '{name}' 缺少生长阶段");
 
-    [Header("Model Scale")]
-    public Vector3 seedScale = Vector3.one;
-    public Vector3 growingScale = Vector3.one;
-    public Vector3 matureScale = Vector3.one;
+        if (totalGrowthTime <= 0)
+            Debug.LogWarning($"CropData '{name}' 的生长时间必须大于0");
+    }
+}
 
-    [Header("Growth Time")]
-    public float seedGrowthTime = 3f;
-    public float seedlingGrowthTime = 10f;
-
-    [Header("Harvest Settings")]//收获设置
-    public string harvestItemID = "crop_harvest";
-    public int harvestAmount = 3;
+[System.Serializable]
+public class CropGrowthStage
+{
+    public string stageName;
+    public GameObject model;
+    public Vector3 scale = Vector3.one;
 }

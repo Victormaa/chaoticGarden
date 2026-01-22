@@ -13,7 +13,7 @@ public class InventoryUI : MonoBehaviour
 
     [Header("设置")]
     public KeyCode toggleKey = KeyCode.B;
-    public int maxSlots = 20;
+    public int maxSlots = 15;
 
     private List<InventorySlot> slots = new List<InventorySlot>();
     private bool isOpen = false;
@@ -96,7 +96,7 @@ public class InventoryUI : MonoBehaviour
         // 更新标题
         if (titleText != null)
         {
-            titleText.text = "背包 (" + items.Count + "/" + maxSlots + ")";
+            titleText.text = " Bag(" + items.Count + "/" + maxSlots + ")";
         }
     }
 
@@ -126,5 +126,15 @@ public class InventoryUI : MonoBehaviour
     {
         isOpen = false;
         inventoryPanel.SetActive(false);
+    }
+    public void InventoryUIRefreshUI()
+    {
+        Debug.Log("开始刷新背包UI...");
+        var items = InventoryManager.Instance.GetAllItems();
+        foreach (var item in items)
+        {
+            Debug.Log($"背包物品：{item.itemID} x{item.quantity}");
+        }
+        // ...刷新逻辑...
     }
 }

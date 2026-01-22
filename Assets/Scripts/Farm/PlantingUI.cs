@@ -1,239 +1,275 @@
-using System.Collections;
-using System.Collections.Generic;
-using TMPro;
-using Unity.VisualScripting;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
+using System.Collections.Generic;
+using System.Collections;
 
 public class PlantingUI : MonoBehaviour
 {
-    [Header("UI References")]//����
-    public GameObject uiPanel;
-    public Transform itemContainer;
-    public GameObject itemButtonPrefab;
+    [Header("UI References")]
+    public GameObject plantingPanel;
+    public TMP_Text titleText;
+    public Transform cropButtonContainer;
+    public GameObject cropButtonPrefab;
+    public Button plantButton;
+    public Button cancelButton;
+    public TMP_Text cropInfoText;
 
-    [Header("Available Plantable Items List")]//����ֲ��Ʒ�б�
-    public List<CropData> availableCrops = new List<CropData>();
+    [Header("Player References")]
+    public MonoBehaviour playerController;
+    public MonoBehaviour cameraController;
 
-    [Header("Particle Light Effect Settings")]
-    public GameObject selectionParticlePrefab; // Particle 
+    [Header("Game Data")]
+    public List<CropData> availableCrops;
 
-    private FarmLand currentFarmLand;
-    private List<GameObject> spawnedButtons = new List<GameObject>();
-    private List<CropData> availablePlantList = new List<CropData>();
-    private List<GameObject> spawnedParticles = new List<GameObject>(); // �洢����
+    private List<GameObject> cropButtons = new List<GameObject>();
+    public CropData selectedCrop;
+    public FarmLand currentFarmLand;
+    private bool isPlanting = false;
 
-    private int currentSelectedIndex = 0;
-    private bool isUIActive = false;
-
-    void Start()
+    void Awake()
     {
-        if (uiPanel == null) Debug.LogError("PlantingUI: UI Panel not assigned!");
-        if (itemContainer == null) Debug.LogError("PlantingUI: Item Container not assigned!");
-        if (itemButtonPrefab == null) Debug.LogError("PlantingUI: Item Button Prefab not assigned!");
-        if (selectionParticlePrefab == null) Debug.LogWarning("PlantingUI: Selection Particle Prefab not assigned!");
+        if (plantingPanel != null)
+        {
+            plantingPanel.SetActive(false);
+        }
 
-        HideUI();
+        if (plantButton != null)
+        {
+            plantButton.onClick.AddListener(OnPlantButtonClicked);
+        }
+
+        if (cancelButton != null)
+        {
+            cancelButton.onClick.AddListener(OnCancelButtonClicked);
+        }
+
+        CreateCropButtons();
     }
 
-    void Update()
+    void CreateCropButtons()
     {
-        if (!isUIActive || availablePlantList.Count == 0) return;
-
-        if (Input.GetKeyDown(KeyCode.E))
+        if (cropButtonContainer == null || cropButtonPrefab == null)
         {
-            currentSelectedIndex = (currentSelectedIndex + 1) % availablePlantList.Count;
-            UpdateSelection();
+            Debug.LogWarning("PlantingUI: 缺少必要的引用");
+            return;
         }
 
-        if (Input.GetKeyDown(KeyCode.Q))
+        foreach (GameObject btn in cropButtons)
         {
-            currentSelectedIndex--;
-            if (currentSelectedIndex < 0)
-                currentSelectedIndex = availablePlantList.Count - 1;
-            UpdateSelection();
+            Destroy(btn);
+        }
+        cropButtons.Clear();
+
+        foreach (CropData crop in availableCrops)
+        {
+            if (crop == null) continue;
+
+            GameObject buttonObj = Instantiate(cropButtonPrefab, cropButtonContainer);
+            cropButtons.Add(buttonObj);
+
+            Image icon = buttonObj.transform.Find("Icon")?.GetComponent<Image>();
+            if (icon != null && crop.icon != null)
+            {
+                icon.sprite = crop.icon;
+            }
+
+            TextMeshProUGUI nameText = buttonObj.transform.Find("Name")?.GetComponent<TextMeshProUGUI>();
+            if (nameText != null)
+            {
+                nameText.text = crop.cropName;
+            }
+
+            Button button = buttonObj.GetComponent<Button>();
+            if (button != null)
+            {
+                CropData cropData = crop;
+                button.onClick.AddListener(() => OnCropButtonClicked(cropData));
+            }
+        }
+    }
+
+    void OnCropButtonClicked(CropData crop)
+    {
+        selectedCrop = crop;
+        Debug.Log($"选择了作物: {crop.cropName}");
+
+        int index = availableCrops.IndexOf(crop);
+        if (index >= 0 && index < cropButtons.Count)
+        {
+            // 重置所有按钮颜色
+            foreach (GameObject btn in cropButtons)
+            {
+                Image bg = btn.GetComponent<Image>();
+                if (bg != null)
+                {
+                    bg.color = Color.white;
+                }
+            }
+
+            // 高亮选中的按钮
+            Image selectedBg = cropButtons[index].GetComponent<Image>();
+            if (selectedBg != null)
+            {
+                selectedBg.color = new Color(0.7f, 1f, 0.7f);
+            }
         }
 
-        if (Input.GetKeyDown(KeyCode.F))
-        {
-            PlantSelectedCrop();
-        }
+        UpdateCropInfo(crop);
+    }
+
+    void UpdateCropInfo(CropData crop)
+    {
+        if (cropInfoText == null) return;
+
+        cropInfoText.text = $"<b>{crop.cropName}</b>\n" +
+                           $"生长时间: {crop.totalGrowthTime} 秒\n" +
+                           $"产出: {crop.harvestAmount} 个";
     }
 
     public void ShowUI(FarmLand farmLand)
     {
-        currentFarmLand = farmLand;
+        Debug.Log(" ShowUI 被调用");
 
-        availablePlantList.Clear();
-        foreach (var crop in availableCrops)
+        if (farmLand == null)
         {
-            if (crop != null)
-            {
-                availablePlantList.Add(crop);
-            }
-        }
-
-        if (availablePlantList.Count == 0)
-        {
-            Debug.LogWarning("No plantable crops available!");//û�п���ֲ������
+            Debug.LogWarning("farmLand 为空");
             return;
         }
 
-        ClearButtons();
-        SpawnButtons();
+        if (plantingPanel == null)
+        {
+            Debug.LogError(" plantingPanel 未赋值！");
+            return;
+        }
 
-        currentSelectedIndex = 0;
-        UpdateSelection();
+        // ✅ 每次打开UI时重置种植标志
+        isPlanting = false;
 
-        uiPanel.SetActive(true);
-        isUIActive = true;
+        currentFarmLand = farmLand;
+        plantingPanel.SetActive(true);
 
-        Cursor.lockState = CursorLockMode.None;
+        Debug.Log(" UI Panel 已激活");
+
+        if (titleText != null)
+        {
+            titleText.text = "选择要种植的作物";
+        }
+
+        selectedCrop = null;
+
+        SetPlayerControlsEnabled(false);
+
         Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+
+        RefreshCropButtons();
     }
 
     public void HideUI()
     {
-        uiPanel.SetActive(false);
-        isUIActive = false;
-        ClearButtons();
+        if (plantingPanel != null)
+        {
+            plantingPanel.SetActive(false);
+        }
 
-        Cursor.lockState = CursorLockMode.Locked;
+        currentFarmLand = null;
+
+        SetPlayerControlsEnabled(true);
+
         Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+
+        //  关闭UI时重置种植标志
+        isPlanting = false;
+
+        Debug.Log(" 种植UI已关闭，种植标志已重置");
     }
 
-    void ClearButtons()
+    void SetPlayerControlsEnabled(bool enabled)
     {
-        // Clear ��ť
-        foreach (var btn in spawnedButtons)
+        if (playerController != null)
         {
-            if (btn != null)
-                Destroy(btn);
+            playerController.enabled = enabled;
         }
-        spawnedButtons.Clear();
 
-        // Clear ����
-        foreach (var particle in spawnedParticles)
+        if (cameraController != null)
         {
-            if (particle != null)
-                Destroy(particle);
-        }
-        spawnedParticles.Clear();
-    }
-
-    void SpawnButtons()
-    {
-        for (int i = 0; i < availablePlantList.Count; i++)
-        {
-            CropData crop = availablePlantList[i];
-
-            GameObject btnObj = Instantiate(itemButtonPrefab, itemContainer);
-            spawnedButtons.Add(btnObj);
-
-            // Set icon
-            Transform iconTransform = btnObj.transform.Find("Icon");
-            if (iconTransform != null && crop.icon != null)
-            {
-                Image iconImage = iconTransform.GetComponent<Image>();
-                if (iconImage != null)
-                {
-                    iconImage.sprite = crop.icon;
-                }
-            }
-
-            // Set name
-            Transform nameTransform = btnObj.transform.Find("Name");
-            if (nameTransform != null)
-            {
-                TextMeshProUGUI nameText = nameTransform.GetComponent<TextMeshProUGUI>();
-                if (nameText != null)
-                {
-                    nameText.text = crop.cropName;
-                }
-            }
-
-            // Create particle system (but hide it initially)
-            if (selectionParticlePrefab != null)
-            {
-                GameObject particleObj = Instantiate(selectionParticlePrefab, btnObj.transform);
-                particleObj.transform.localPosition = Vector3.zero;
-                particleObj.SetActive(false); // Hidden by default
-                spawnedParticles.Add(particleObj);
-            }
-            else
-            {
-                spawnedParticles.Add(null);
-            }
+            cameraController.enabled = enabled;
         }
     }
 
-    void UpdateSelection()
+    void RefreshCropButtons()
     {
-        for (int i = 0; i < spawnedButtons.Count; i++)
+        if (cropButtonContainer == null) return;
+
+        foreach (Transform child in cropButtonContainer)
         {
-            GameObject btn = spawnedButtons[i];
-            if (btn == null) continue;
-
-            RectTransform rectTransform = btn.GetComponent<RectTransform>();
-
-            if (i == currentSelectedIndex)
-            {
-                // Selected state: show particle, scale up
-                if (rectTransform != null)
-                {
-                    rectTransform.localScale = Vector3.one * 1.15f;
-                }
-
-                // Show particle
-                if (i < spawnedParticles.Count && spawnedParticles[i] != null)
-                {
-                    spawnedParticles[i].SetActive(true);
-                }
-            }
-            else
-            {
-                // Unselected state: hide particle, normal size
-                if (rectTransform != null)
-                {
-                    rectTransform.localScale = Vector3.one;
-                }
-
-                // Hide particle
-                if (i < spawnedParticles.Count && spawnedParticles[i] != null)
-                {
-                    spawnedParticles[i].SetActive(false);
-                }
-            }
+            Destroy(child.gameObject);
         }
+        cropButtons.Clear();
 
-        Debug.Log("Currently selected: " + availablePlantList[currentSelectedIndex].cropName);
+        CreateCropButtons();
     }
 
-    void PlantSelectedCrop()
+    public void OnPlantButtonClicked()
     {
+        //  防止重复点击
+        if (isPlanting)
+        {
+            Debug.LogWarning(" 正在种植中，请稍后...");
+            return;
+        }
+
         if (currentFarmLand == null)
         {
-            Debug.LogWarning("No farmland currently selected");//��ǰû��ѡ�е�����
+            Debug.LogWarning("❌ 未选择农田");
             return;
         }
-
-        if (currentSelectedIndex < 0 || currentSelectedIndex >= availablePlantList.Count)
-        {
-            Debug.LogWarning("Selected index out of bounds");//ѡ������Խ��
-            return;
-        }
-
-        CropData selectedCrop = availablePlantList[currentSelectedIndex];
 
         if (selectedCrop == null)
         {
-            Debug.LogWarning("Selected crop data is null");//ѡ�е���������Ϊ��
+            Debug.LogWarning("❌ 请先选择作物");
             return;
         }
 
-        currentFarmLand.PlantCrop(selectedCrop);
+        //  检查农田是否已有作物
+        if (currentFarmLand.hasCrop || currentFarmLand.currentCrop != null)
+        {
+            Debug.LogWarning("❌ 该农田已经有作物了");
+            HideUI();
+            return;
+        }
+
+        //  标记为正在种植
+        isPlanting = true;
+
+        Debug.Log($" 开始种植 {selectedCrop.cropName}");
+
+        // 执行种植
+        if (currentFarmLand != null)
+        {
+            currentFarmLand.PlantCrop(selectedCrop.cropPrefab);
+        }
+        // 先关闭UI
         HideUI();
 
-        Debug.Log("Planted: " + selectedCrop.cropName);
+        Debug.Log($"成功种植 {selectedCrop.cropName}");
+
+        // 0.1秒后重置标志（防止快速重复点击）
+        StartCoroutine(ResetPlantingFlag());
+    }
+
+    IEnumerator ResetPlantingFlag()
+    {
+        yield return new WaitForSeconds(0.1f);
+        isPlanting = false;
+        Debug.Log(" 种植标志已重置");
+    }
+
+    void OnCancelButtonClicked()
+    {
+        Debug.Log(" 取消种植");
+        HideUI();
     }
 }

@@ -220,4 +220,4 @@ public class FirstPersonController : MonoBehaviour
             Gizmos.DrawWireSphere(groundCheck.position, groundDistance);
         }
     }
-}
+}   
