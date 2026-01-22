@@ -16,20 +16,15 @@ MonoBehaviour:
   cropName: Beet
   icon: {fileID: 21300000, guid: f5b13ebdb249b2c4ca5f45926e22b510, type: 3}
   cropPrefab: {fileID: 9146387901088596327, guid: 66211730ed04c85479e8328141b14b10, type: 3}
-  seedItemID: Beet_seed
   totalGrowthTime: 15
   growthStages:
   - stageName: Seed
-    sprite: {fileID: 0}
     model: {fileID: 5608563279018612947, guid: f96f450d1ebdc984a952369c125e6ae5, type: 3}
     scale: {x: 1, y: 1, z: 1}
   - stageName: Seedling
-    sprite: {fileID: 0}
     model: {fileID: 1622650416657655721, guid: 605cda91f8087f4409bd7bbfb1856f59, type: 3}
     scale: {x: 1, y: 1, z: 1}
   - stageName: Mature
-    sprite: {fileID: 0}
     model: {fileID: 7033391141217364278, guid: ae5f62cc4bae60b46a5e73e26b626445, type: 3}
     scale: {x: 1, y: 1, z: 1}
-  harvestItemID: crop_001
-  harvestAmount: 5
+  harvestAmount: 1
