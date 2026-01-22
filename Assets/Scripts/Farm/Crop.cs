@@ -176,8 +176,8 @@ public class Crop : MonoBehaviour
                 Destroy(child.gameObject);
             }
 
-            GameObject model = Instantiate(stage.model, transform.position, Quaternion.identity, transform);
-            model.transform.localScale = stage.scale;
+            //GameObject model = Instantiate(stage.model, transform.position, Quaternion.identity, transform);
+            //model.transform.localScale = stage.scale;
         }
     }
 }
